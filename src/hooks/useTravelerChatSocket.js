@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Client } from '@stomp/stompjs'
+import { TOKEN_KEY } from '../services/api'
 
 /**
  * STOMP over WebSocket for real-time traveler chat (Spring @MessageMapping /app/chat/{id}/sendMessage).
@@ -19,7 +20,7 @@ export function useTravelerChatSocket(connectionId, { enabled = true, onMessage 
       return undefined
     }
 
-    const token = localStorage.getItem('smartrip_token') || localStorage.getItem('token')
+    const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('smartrip_token') || localStorage.getItem('token')
     const client = new Client({
       brokerURL,
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
