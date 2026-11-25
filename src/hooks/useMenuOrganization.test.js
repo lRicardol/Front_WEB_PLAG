@@ -41,7 +41,7 @@ describe('useMenuOrganization', () => {
       track: vi.fn().mockResolvedValue(undefined),
       flushPendingInteractions: vi.fn().mockResolvedValue(undefined),
     }
-    menuSvc.MenuTracker.mockImplementation(() => tracker)
+    menuSvc.MenuTracker.mockImplementation(function () { return tracker })
   })
 
   it('loads personalized menu and exposes scores', async () => {

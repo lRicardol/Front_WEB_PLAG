@@ -29,7 +29,7 @@ describe('useTravelerChatSocket', () => {
     localStorage.setItem('smartrip_token', 'st')
     const onMessage = vi.fn()
     let ctorConfig
-    Client.mockImplementation((cfg) => {
+    Client.mockImplementation(function (cfg) {
       ctorConfig = cfg
       const self = {
         connected: false,
@@ -87,13 +87,13 @@ describe('useTravelerChatSocket', () => {
 
   it('publishSend returns false when disconnected', () => {
     vi.stubEnv('VITE_WS_BROKER_URL', 'ws://localhost/ws')
-    Client.mockImplementation(() => ({
+    Client.mockImplementation(function () { return ({
       connected: false,
       activate: vi.fn(),
       deactivate: vi.fn(() => Promise.resolve()),
       publish: vi.fn(),
       subscribe: vi.fn(),
-    }))
+    }) })
     const { result, unmount } = renderHook(() =>
       useTravelerChatSocket('2', { enabled: true, onMessage: vi.fn() }),
     )

@@ -134,7 +134,9 @@ export const AuthProvider = ({ children }) => {
       const loginResponse = await authService.login(credentials)
       console.log('Login response:', loginResponse)
       const token = loginResponse?.token
-      const rawUser = loginResponse?.user
+      // El backend devuelve los datos del usuario al mismo nivel que el token ({ id, username, ..., token });
+      // se acepta también el formato { user, token }.
+      const rawUser = loginResponse?.user ?? loginResponse
 
       if (!token) throw new Error('No token received from server')
 

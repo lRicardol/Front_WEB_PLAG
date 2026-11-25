@@ -50,8 +50,6 @@ jobs:
       - name: Run OWASP Dependency-Check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        # Se omiten las devDependencies (vite, vitest, eslint...): no se empaquetan en el build
-        # que llega al navegador. Riesgo aceptado y documentado; Dependabot las sigue vigilando.
         run: |
           mkdir -p reports
           "$RUNNER_TEMP/dependency-check/bin/dependency-check.sh" \
@@ -67,9 +65,7 @@ jobs:
             --data ~/.dependency-check-data \
             --disableOssIndex \
             --disableYarnAudit \
-            --disablePnpmAudit \
-            --nodeAuditSkipDevDependencies \
-            --nodePackageSkipDevDependencies
+            --disablePnpmAudit
 
       - name: Save NVD database
         if: always()
