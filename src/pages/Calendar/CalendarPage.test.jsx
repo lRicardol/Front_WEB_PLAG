@@ -25,8 +25,8 @@ describe('CalendarPage', () => {
         id: 1,
         title: 'Trip A',
         status: 'ACTIVE',
-        startDate: '2026-05-10',
-        endDate: '2026-05-12',
+        startDate: '2027-05-10',
+        endDate: '2027-05-12',
         destinationLocation: 'Bogota',
       },
       {
