@@ -528,7 +528,10 @@ const Social = () => {
   }, [activeTravelerProfile])
 
   const loadSocialData = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
