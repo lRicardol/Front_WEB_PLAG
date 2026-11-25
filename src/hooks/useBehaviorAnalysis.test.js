@@ -13,10 +13,10 @@ vi.mock('../contexts/use-auth.js', () => ({
 }))
 
 vi.mock('../services/behaviorAnalysisService.js', () => {
-  const BehaviorTracker = vi.fn().mockImplementation(() => ({
+  const BehaviorTracker = vi.fn().mockImplementation(function () { return ({
     track: vi.fn().mockResolvedValue(undefined),
     flushPendingInteractions: vi.fn().mockResolvedValue(undefined),
-  }))
+  }) })
   return {
     InteractionType: { VIEW: 'view' },
     BehaviorTracker,
