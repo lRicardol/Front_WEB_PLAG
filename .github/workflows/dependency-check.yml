@@ -41,21 +41,23 @@ jobs:
           key: ${{ runner.os }}-nvd-${{ steps.date.outputs.today }}
           restore-keys: ${{ runner.os }}-nvd-
 
+      # La herramienta se descarga fuera del proyecto para que no se analice a sí misma
       - name: Download Dependency-Check CLI
         run: |
-          curl -sSL -o dc.zip "https://github.com/dependency-check/DependencyCheck/releases/download/v${DC_VERSION}/dependency-check-${DC_VERSION}-release.zip"
-          unzip -q dc.zip
+          curl -sSL -o "$RUNNER_TEMP/dc.zip" "https://github.com/dependency-check/DependencyCheck/releases/download/v${DC_VERSION}/dependency-check-${DC_VERSION}-release.zip"
+          unzip -q "$RUNNER_TEMP/dc.zip" -d "$RUNNER_TEMP"
 
       - name: Run OWASP Dependency-Check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        # Se omiten las devDependencies (vite, vitest, eslint...): no se empaquetan en el build
+        # que llega al navegador. Riesgo aceptado y documentado; Dependabot las sigue vigilando.
         run: |
           mkdir -p reports
-          ./dependency-check/bin/dependency-check.sh \
+          "$RUNNER_TEMP/dependency-check/bin/dependency-check.sh" \
             --project "Front_WEB_PLAG" \
             --scan . \
             --exclude "**/node_modules/**" \
-            --exclude "**/dependency-check/**" \
             --exclude "**/dist/**" \
             --exclude "**/coverage/**" \
             --format HTML --format SARIF \
@@ -65,7 +67,9 @@ jobs:
             --data ~/.dependency-check-data \
             --disableOssIndex \
             --disableYarnAudit \
-            --disablePnpmAudit
+            --disablePnpmAudit \
+            --nodeAuditSkipDevDependencies \
+            --nodePackageSkipDevDependencies
 
       - name: Save NVD database
         if: always()
