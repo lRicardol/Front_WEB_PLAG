@@ -360,6 +360,75 @@ describe('TravelDetails', () => {
     )
   })
 
+  it('muestra un error si una actividad aceptada no tiene horario para copiar', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 23,
+      activityId: 33,
+      senderId: 88,
+      receiverId: 1,
+      status: 'ACCEPTED',
+      activityName: 'Actividad sin horario',
+    }])
+
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: /Agregar a este plan/i }))
+
+    expect(await screen.findByText(/faltan las horas de inicio o fin/i)).toBeInTheDocument()
+    expect(travelService.addActivity).not.toHaveBeenCalled()
+  })
+
+  it('muestra el error si falla guardar una actividad compartida aceptada', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 24,
+      activityId: 34,
+      senderId: 88,
+      receiverId: 1,
+      status: 'ACCEPTED',
+      activityName: 'Walking tour — Paris',
+      activityStartTime: '2026-03-04T10:00:00',
+      activityEndTime: '2026-03-04T12:00:00',
+    }])
+    travelService.addActivity.mockRejectedValueOnce(new Error('No se pudo guardar la actividad'))
+
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: /Agregar a este plan/i }))
+
+    expect(await screen.findByText('No se pudo guardar la actividad')).toBeInTheDocument()
+  })
+
+  it('no intenta copiar una actividad si falla la aceptación', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 25,
+      activityId: 35,
+      senderId: 88,
+      receiverId: 1,
+      status: 'PENDING',
+      activityName: 'Walking tour — Paris',
+      activityStartTime: '2026-03-04T10:00:00',
+      activityEndTime: '2026-03-04T12:00:00',
+    }])
+    socialCollaborationService.updateSharedActivity.mockRejectedValueOnce(
+      new Error('No se pudo aceptar la actividad')
+    )
+
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: /Aceptar/i }))
+
+    expect(await screen.findByText('No se pudo aceptar la actividad')).toBeInTheDocument()
+    expect(travelService.addActivity).not.toHaveBeenCalled()
+  })
+
+  it('muestra error cuando no puede cargar actividades compartidas', async () => {
+    socialCollaborationService.getSharedActivities.mockRejectedValueOnce(
+      new Error('No se pudieron cargar las actividades compartidas')
+    )
+
+    renderAt()
+
+    expect(await screen.findByText('No se pudieron cargar las actividades compartidas'))
+      .toBeInTheDocument()
+  })
+
   it('no duplica una actividad compartida que ya está en el plan', async () => {
     socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
       id: 21,
