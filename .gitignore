@@ -35,22 +35,6 @@ chrome-user-data
 .env.development.local
 .env.production.local
 .env.test.local
-.env.example
-.env.example.local
-.env.example.development
-.env.example.production
-.env.example.test
-.env.example.development.local
-.env.example.production.local
-.env.example.test.local
-.env.example.local
-.env.example.development.local
-.env.example.production.local
-.env.example.test.local
-.env.example.local
-.env.example.development.local
-.env.example.production
-.env.example.test
 dist/
 
 packages/react-devtools-core/dist
