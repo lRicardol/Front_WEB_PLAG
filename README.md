@@ -1,87 +1,96 @@
-# Front_WEB_PLAG — Frontend Tourism Intelligent Platform
+# Front_WEB_PLAG — Frontend de SmartTrip
 
-Aplicación web en **React 18 + Vite** que consume el backend [`Back_Plang`](https://github.com/lRicardol/Front_WEB_PLAG) (Spring Boot) corriendo en local. Este README explica cómo levantar todo el stack en **Windows** sin depender de AWS ni de servicios en la nube.
-
-> Los scripts de `scripts/` (p. ej. `deploy-web-client-manual.sh`) y `nginx.conf` son solo para despliegue en producción y **no se usan en desarrollo local**.
+Aplicación web en **React 18 + Vite** que consume el backend [`Back_Plang`](https://github.com/lRicardol/Back_Plang) (Spring Boot). Este README explica cómo ejecutarla **en local**, sin depender de AWS ni de servicios en la nube.
 
 ---
 
-## Requisitos previos
+## Requisitos
 
-| Herramienta | Versión | Notas |
+| Herramienta | Versión | Cómo comprobarla |
 |---|---|---|
-| Node.js + npm | 18+ (recomendado 20/22 LTS) | Necesario para Vite |
-| Backend `Back_Plang` | — | Debe estar corriendo con el perfil `local` en `http://localhost:8080` |
-| Git Bash o PowerShell | — | Comandos en sintaxis Bash |
+| Node.js + npm | 20 o superior | `node -v` |
+| Backend `Back_Plang` | corriendo con el perfil `local` en `http://localhost:8080` | ver Paso 1 |
+| Git | cualquiera | `git --version` |
 
-Si no tienes Node.js instalado globalmente, puedes usar una copia portable (ej. `~/tools/node/node.exe`).
+Los comandos funcionan igual en **Windows** (PowerShell o Git Bash), **macOS** y **Linux**.
 
 ---
 
-## Paso 1 — Encender el Backend primero
+## Paso 1 — Ejecutar el backend primero
 
-El frontend necesita el backend activo. En el repo `Back_Plang`:
+El frontend necesita el backend activo. Sigue el README de [`Back_Plang`](https://github.com/lRicardol/Back_Plang); en resumen:
 
 ```bash
-cd "C:\Users\richa\PycharmProjects\Back_Plang"
-
-# Solo si no tienes java/mvn en el PATH:
-export JAVA_HOME="/c/Program Files/JetBrains/PyCharm 2026.2.3/jbr"
-export PATH="$JAVA_HOME/bin:$HOME/tools/apache-maven-3.9.16/bin:$PATH"
-
+git clone https://github.com/lRicardol/Back_Plang.git
+cd Back_Plang
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-Con el perfil `local` el backend:
-
-- Sirve la API en la raíz: `http://localhost:8080` (sin prefijo `/api/v1`).
-- Usa **H2 en memoria** (no requiere PostgreSQL).
-- Tiene **Amadeus en modo mock** y **CORS + WebSockets habilitados** para `http://localhost:5173`.
-- Expone Swagger UI en `http://localhost:8080/swagger-ui/index.html`.
-
-Verifica que responde: `curl http://localhost:8080/actuator/health` → `{"status":"UP"}`.
+Comprueba que responde: http://localhost:8080/actuator/health → `{"status":"UP"}`.
 
 ---
 
-## Paso 2 — Configurar el Frontend
-
-### 2.1 Instalar dependencias
+## Paso 2 — Configurar el frontend
 
 ```bash
-cd "C:\Users\richa\PycharmProjects\Front_WEB_PLAG"
+git clone https://github.com/lRicardol/Front_WEB_PLAG.git
+cd Front_WEB_PLAG
 npm install
 ```
 
-### 2.2 Archivo `.env`
+### Archivo `.env`
 
-El proyecto ya incluye un `.env` configurado para el backend local. Si lo recreas, usa:
+El repositorio incluye un [`.env.example`](.env.example) con la configuración para el backend local. Cópialo como `.env`:
+
+```bash
+# macOS / Linux / Git Bash
+cp .env.example .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+Contenido:
 
 ```env
-# Backend local (Back_Plang, perfil `local` — API en la raíz, SIN /api/v1)
+# Backend local (perfil local: API en la raíz, sin /api/v1)
 VITE_API_BASE_URL=http://localhost:8080
 
 # Chat en tiempo real (STOMP/WebSocket)
 VITE_WS_BROKER_URL=ws://localhost:8080/ws-chat
-
-# OPCIONAL: microservicio de IA FastAPI (no incluido en el backend local)
-# VITE_AI_SERVICE_BASE_URL=http://localhost:8000/api/v1
 ```
 
-> **Importante**: `VITE_API_BASE_URL` debe apuntar a `http://localhost:8080` **sin** `/api/v1`, porque el perfil `local` del backend sirve la API en la raíz. El código (`src/services/api.js`) usa esta variable como `baseURL` de Axios.
->
-> El asistente de IA (`src/services/aiMicroservice.js`) apunta por defecto a `/api/v1` del propio Vite si no defines `VITE_AI_SERVICE_BASE_URL`; sus funciones mostrarán un error controlado (404) pero **no rompen la app**.
+El `.env` no se sube al repositorio (está en el `.gitignore`); el `.env.example` sí, porque no contiene secretos.
 
 ---
 
-## Paso 3 — Arrancar el Frontend
+## Paso 3 — Ejecutar el frontend
 
 ```bash
 npm run dev
 ```
 
-Vite levanta el servidor de desarrollo en **http://localhost:5173** (puerto fijo configurado en `vite.config.js`).
+Vite levanta la aplicación en **http://localhost:5173**.
 
-La conexión es **directa** (sin proxy): el navegador llama a `http://localhost:8080` y el backend ya autoriza CORS desde `http://localhost:*`.
+## Flujo rápido de prueba
+
+1. Backend encendido → http://localhost:8080/actuator/health responde `UP`.
+2. Frontend encendido → abre http://localhost:5173.
+3. **Regístrate** y luego **inicia sesión con usuario y contraseña**. El inicio de sesión con Google no funciona en local porque requiere credenciales de Google Cloud que no se guardan en el repositorio.
+4. Crea un plan de viaje, agrégale actividades y revísalo en "Mis viajes" y en el calendario.
+
+## Ejecutar las pruebas
+
+```bash
+npm run test:run
+```
+
+> Con Node 25 o superior, ejecuta `NODE_OPTIONS=--no-experimental-webstorage npm run test:run` (en PowerShell: `$env:NODE_OPTIONS="--no-experimental-webstorage"; npm run test:run`). Esas versiones de Node traen un `localStorage` propio que interfiere con el de las pruebas.
+
+## Notas
+
+- `scripts/deploy-web-client-manual.sh` y `nginx.conf` son del despliegue en AWS del semestre anterior y no se usan en local.
+- El asistente de IA (`VITE_AI_SERVICE_BASE_URL`) depende de un microservicio que no está incluido en este proyecto; si no se configura, esa sección muestra un error controlado sin afectar el resto de la aplicación.
 
 ---
 
