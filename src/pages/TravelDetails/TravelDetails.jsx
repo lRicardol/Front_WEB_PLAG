@@ -682,8 +682,11 @@ const TravelDetails = () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await travelService.getById(id)
-      setPlan(data)
+      const [data, activities] = await Promise.all([
+        travelService.getById(id),
+        travelService.getActivities(id),
+      ])
+      setPlan({ ...data, activities })
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {
@@ -697,7 +700,11 @@ const TravelDetails = () => {
     setStatusLoading(true)
     try {
       const updated = await travelService.updateStatus(id, newStatus)
-      setPlan(updated)
+      setPlan((prev) => ({
+        ...prev,
+        ...updated,
+        activities: Array.isArray(updated.activities) ? updated.activities : prev.activities,
+      }))
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {

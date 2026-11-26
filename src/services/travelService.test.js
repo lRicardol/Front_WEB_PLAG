@@ -28,6 +28,8 @@ describe('travelService', () => {
   it('crud and activities', async () => {
     apiMock.get.mockResolvedValue({ id: 1 })
     await travelService.getById(1)
+    apiMock.get.mockResolvedValue({ content: [{ id: 'a1' }] })
+    expect(await travelService.getActivities(1)).toEqual([{ id: 'a1' }])
     apiMock.post.mockResolvedValue({})
     await travelService.create({ title: 't' })
     apiMock.put.mockResolvedValue({})
@@ -38,6 +40,15 @@ describe('travelService', () => {
     await travelService.addActivity(1, { name: 'a' })
     await travelService.updateActivity(1, 2, {})
     await travelService.deleteActivity(1, 2)
+  })
+
+  it('normalizes activity list responses', async () => {
+    apiMock.get.mockResolvedValue({ records: [{ id: 'a1' }] })
+    expect(await travelService.getActivities(1)).toEqual([{ id: 'a1' }])
+    apiMock.get.mockResolvedValue({ unexpected: true })
+    await expect(travelService.getActivities(1)).rejects.toThrow(
+      'Invalid response while loading travel plan activities',
+    )
   })
 
   it('matching', async () => {
