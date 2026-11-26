@@ -37,6 +37,7 @@ vi.mock('../../components/Catalog/CatalogDestinationsPanel', () => {
 vi.mock('../../services/travelService', () => ({
   travelService: {
     getById: vi.fn(),
+    getActivities: vi.fn(),
     updateStatus: vi.fn(),
     deleteActivity: vi.fn(),
     addActivity: vi.fn(),
@@ -112,6 +113,7 @@ describe('TravelDetails', () => {
     vi.clearAllMocks()
     navigate.mockClear()
     travelService.getById.mockResolvedValue({ ...mockPlan })
+    travelService.getActivities.mockResolvedValue(mockPlan.activities)
     travelService.updateStatus.mockImplementation(async (_id, st) => ({ ...mockPlan, status: st }))
     travelService.addActivity.mockResolvedValue({
       id: 'new1',
@@ -129,7 +131,15 @@ describe('TravelDetails', () => {
   it('renders plan after load', async () => {
     renderAt()
     await waitFor(() => expect(travelService.getById).toHaveBeenCalledWith('7'))
+    expect(travelService.getActivities).toHaveBeenCalledWith('7')
     await waitFor(() => expect(screen.getByText('Details plan')).toBeInTheDocument())
+  })
+
+  it('loads activities separately when the plan response omits them', async () => {
+    travelService.getById.mockResolvedValueOnce({ ...mockPlan, activities: undefined })
+    travelService.getActivities.mockResolvedValueOnce(mockPlan.activities)
+    renderAt()
+    await waitFor(() => expect(screen.getByText('Coliseo')).toBeInTheDocument())
   })
 
   it('muestra error si falla la carga', async () => {
@@ -141,10 +151,12 @@ describe('TravelDetails', () => {
   })
 
   it('cambia estado del plan', async () => {
+    travelService.updateStatus.mockResolvedValueOnce({ ...mockPlan, activities: undefined, status: 'ACTIVE' })
     renderAt()
     await waitFor(() => expect(screen.getByText('Details plan')).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: /Marcar Active/i }))
     await waitFor(() => expect(travelService.updateStatus).toHaveBeenCalledWith('7', 'ACTIVE'))
+    expect(screen.getByText('Coliseo')).toBeInTheDocument()
   })
 
   it('elimina actividad con confirmacion', async () => {
@@ -158,6 +170,7 @@ describe('TravelDetails', () => {
 
   it('agrega actividad desde el modal', async () => {
     travelService.getById.mockResolvedValueOnce({ ...mockPlan, activities: [] })
+    travelService.getActivities.mockResolvedValueOnce([])
     renderAt()
     await waitFor(() => expect(screen.getByText(/Aun no hay actividades/i)).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: /Agregar/i }))
@@ -170,6 +183,7 @@ describe('TravelDetails', () => {
 
   it('catalogo rellena prefill y abre modal', async () => {
     travelService.getById.mockResolvedValueOnce({ ...mockPlan, activities: [] })
+    travelService.getActivities.mockResolvedValueOnce([])
     renderAt()
     await waitFor(() => expect(screen.getByRole('button', { name: /Elegir del catalogo/i })).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: /Elegir del catalogo/i }))

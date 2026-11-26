@@ -33,6 +33,14 @@ export const travelService = {
    */
   getById: (id) => api.get(`/travel-plans/${id}`),
 
+  getActivities: async (planId) => {
+    const result = await api.get(`/travel-plans/${planId}/activities`)
+    if (Array.isArray(result)) return result
+    if (Array.isArray(result?.content)) return result.content
+    if (Array.isArray(result?.records)) return result.records
+    throw new Error('Invalid response while loading travel plan activities')
+  },
+
   /**
    * Create a new travel plan.
    * @param {{ title, destinationLocation, originLocation?, startDate, endDate, estimatedBudget?, numberOfTravelers, description? }} payload
