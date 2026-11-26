@@ -41,6 +41,20 @@ export const socialCollaborationService = {
     return normalizeSharedActivity(unwrapApiResponse(response))
   },
 
+  async getSharedActivities() {
+    const response = await api.get(SOCIAL_ENDPOINTS.sharedActivities)
+    const payload = unwrapApiResponse(response)
+    return (Array.isArray(payload) ? payload : []).map(normalizeSharedActivity)
+  },
+
+  async shareAllActivities(travelPlanId, receiverId) {
+    const response = await api.post(SOCIAL_ENDPOINTS.shareAllActivities(travelPlanId), {
+      receiverId
+    })
+    const payload = unwrapApiResponse(response)
+    return (Array.isArray(payload) ? payload : []).map(normalizeSharedActivity)
+  },
+
   async getCompatibilityMatches(request) {
     const response = await api.post(SOCIAL_ENDPOINTS.compatibilityMatches, request)
     return normalizeCompatibilityMatches(unwrapApiResponse(response))

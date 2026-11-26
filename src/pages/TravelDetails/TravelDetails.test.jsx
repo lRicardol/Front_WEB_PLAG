@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import TravelDetails from './TravelDetails'
 import { travelService } from '../../services/travelService'
 import { socialService } from '../../services/socialService'
+import { socialCollaborationService } from '../../services/socialCollaborationService'
 
 vi.mock('../../components/TravelPlan/QuickEditModal', () => ({
   default: ({ isOpen, onClose, onUpdate }) =>
@@ -63,6 +64,18 @@ vi.mock('../../services/socialService', () => ({
   socialService: {
     getTravelerSummary: vi.fn().mockResolvedValue({}),
     sendConnectionRequest: vi.fn().mockResolvedValue({}),
+    getUserConnections: vi.fn().mockResolvedValue([
+      { connectedUserId: 88, firstName: 'Bo', lastName: 'D', username: 'bod' },
+    ]),
+  },
+}))
+
+vi.mock('../../services/socialCollaborationService', () => ({
+  socialCollaborationService: {
+    getSharedActivities: vi.fn().mockResolvedValue([]),
+    shareActivity: vi.fn().mockResolvedValue({ id: 10, status: 'PENDING' }),
+    shareAllActivities: vi.fn().mockResolvedValue([]),
+    updateSharedActivity: vi.fn().mockResolvedValue({ id: 10, status: 'ACCEPTED' }),
   },
 }))
 
@@ -230,5 +243,141 @@ describe('TravelDetails', () => {
     await waitFor(() => expect(screen.getByText('Details plan')).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: /Mis viajes/i }))
     expect(navigate).toHaveBeenCalledWith('/my-travels')
+  })
+
+  it('muestra el boton compartir y envia una actividad', async () => {
+    renderAt()
+    await waitFor(() => expect(screen.getByText('Coliseo')).toBeInTheDocument())
+    await userEvent.click(screen.getByTitle('Compartir actividad'))
+    await waitFor(() => expect(screen.getByLabelText(/Viajero/i)).toBeInTheDocument())
+    await userEvent.selectOptions(screen.getByLabelText(/Viajero/i), '88')
+    await userEvent.click(screen.getByRole('button', { name: 'Compartir' }))
+    await waitFor(() =>
+      expect(socialCollaborationService.shareActivity).toHaveBeenCalledWith('a1', 88)
+    )
+  })
+
+  it('comparte todas las actividades del plan', async () => {
+    renderAt()
+    await waitFor(() => expect(screen.getByText('Coliseo')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /Compartir todas/i }))
+    await waitFor(() => expect(screen.getByLabelText(/Viajero/i)).toBeInTheDocument())
+    await userEvent.selectOptions(screen.getByLabelText(/Viajero/i), '88')
+    await userEvent.click(screen.getByRole('button', { name: 'Compartir' }))
+    await waitFor(() =>
+      expect(socialCollaborationService.shareAllActivities).toHaveBeenCalledWith('7', 88)
+    )
+  })
+
+  it('mantiene las acciones de solicitudes compartidas debajo del detalle', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 21,
+      activityId: 31,
+      senderId: 88,
+      receiverId: 1,
+      status: 'PENDING',
+      activityName: 'Walking tour — Paris',
+      activityDescription: 'Actividad compartida para una demostración.',
+      activityLocation: 'Paris',
+      activityStartTime: '2026-03-04T10:00:00',
+      activityEndTime: '2026-03-04T12:00:00',
+    }])
+
+    renderAt()
+
+    const sharedItem = await screen.findByText('Walking tour — Paris')
+    const card = sharedItem.closest('.shared-activity-item')
+    expect(card).toBeInTheDocument()
+    expect(card.querySelector('.shared-activity-actions')).toBeInTheDocument()
+    expect(card.querySelector('.shared-activity-actions')).toContainElement(
+      screen.getByRole('button', { name: /Aceptar/i })
+    )
+  })
+
+  it('agrega la actividad compartida al plan al aceptarla', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 21,
+      activityId: 31,
+      senderId: 88,
+      receiverId: 1,
+      status: 'PENDING',
+      activityName: 'Walking tour — Paris',
+      activityDescription: 'Tour guiado',
+      activityLocation: 'Paris',
+      activityStartTime: '2026-03-04T10:00:00',
+      activityEndTime: '2026-03-04T12:00:00',
+    }])
+    travelService.addActivity.mockResolvedValueOnce({
+      id: 'new-shared-activity',
+      name: 'Walking tour — Paris',
+    })
+
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: /Aceptar/i }))
+
+    await waitFor(() => {
+      expect(socialCollaborationService.updateSharedActivity).toHaveBeenCalledWith(21, 'ACCEPT')
+      expect(travelService.addActivity).toHaveBeenCalledWith('7', {
+        name: 'Walking tour — Paris',
+        description: 'Tour guiado',
+        location: 'Paris',
+        startTime: '2026-03-04T10:00:00',
+        endTime: '2026-03-04T12:00:00',
+      })
+    })
+    expect(await screen.findByText('Walking tour — Paris')).toBeInTheDocument()
+  })
+
+  it('permite agregar al plan una actividad que ya estaba aceptada', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 22,
+      activityId: 32,
+      senderId: 88,
+      receiverId: 1,
+      status: 'ACCEPTED',
+      activityName: 'Walking tour — Paris',
+      activityDescription: 'Tour guiado',
+      activityLocation: 'Paris',
+      activityStartTime: '2026-03-04T10:00:00',
+      activityEndTime: '2026-03-04T12:00:00',
+    }])
+    travelService.addActivity.mockResolvedValueOnce({
+      id: 'new-shared-activity',
+      name: 'Walking tour — Paris',
+    })
+
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: /Agregar a este plan/i }))
+
+    await waitFor(() =>
+      expect(travelService.addActivity).toHaveBeenCalledWith('7', {
+        name: 'Walking tour — Paris',
+        description: 'Tour guiado',
+        location: 'Paris',
+        startTime: '2026-03-04T10:00:00',
+        endTime: '2026-03-04T12:00:00',
+      })
+    )
+  })
+
+  it('no duplica una actividad compartida que ya está en el plan', async () => {
+    socialCollaborationService.getSharedActivities.mockResolvedValueOnce([{
+      id: 21,
+      activityId: 'a1',
+      senderId: 88,
+      receiverId: 1,
+      status: 'PENDING',
+      activityName: 'Coliseo',
+      activityStartTime: '2026-03-04T10:00:00',
+      activityEndTime: '2026-03-04T12:00:00',
+    }])
+
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: /Aceptar/i }))
+
+    await waitFor(() =>
+      expect(socialCollaborationService.updateSharedActivity).toHaveBeenCalledWith(21, 'ACCEPT')
+    )
+    expect(travelService.addActivity).not.toHaveBeenCalled()
   })
 })

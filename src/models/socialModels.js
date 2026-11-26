@@ -21,7 +21,12 @@ export const normalizeSharedActivity = (payload) => ({
   senderId: Number(payload?.senderId) || 0,
   receiverId: Number(payload?.receiverId) || 0,
   status: String(payload?.status || SHARED_ACTIVITY_STATUSES.PENDING),
-  sharedPlan: Boolean(payload?.sharedPlan)
+  sharedPlan: Boolean(payload?.sharedPlan),
+  activityName: String(payload?.activityName || ''),
+  activityDescription: String(payload?.activityDescription || ''),
+  activityLocation: String(payload?.activityLocation || ''),
+  activityStartTime: payload?.activityStartTime || null,
+  activityEndTime: payload?.activityEndTime || null,
 })
 
 export const normalizeCompatibilityMatches = (payload) =>

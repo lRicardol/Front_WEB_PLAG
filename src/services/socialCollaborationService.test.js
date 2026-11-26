@@ -37,6 +37,33 @@ describe('socialCollaborationService', () => {
     await socialCollaborationService.updateSharedActivity(1, 'ACCEPT')
   })
 
+  it('getSharedActivities normalizes activity details', async () => {
+    apiMock.get.mockResolvedValue({
+      data: [{
+        id: 1,
+        activityId: 2,
+        senderId: 3,
+        receiverId: 4,
+        status: 'PENDING',
+        sharedPlan: false,
+        activityName: 'Museo',
+        activityLocation: 'Roma',
+      }],
+    })
+    const shares = await socialCollaborationService.getSharedActivities()
+    expect(shares[0].activityName).toBe('Museo')
+    expect(shares[0].activityLocation).toBe('Roma')
+  })
+
+  it('shareAllActivities posts to the travel plan endpoint', async () => {
+    apiMock.post.mockResolvedValue({
+      data: [{ id: 1, activityId: 2, receiverId: 4, status: 'PENDING', sharedPlan: false }],
+    })
+    const shares = await socialCollaborationService.shareAllActivities(7, 4)
+    expect(apiMock.post).toHaveBeenCalledWith('/travel-plans/7/activities/share', { receiverId: 4 })
+    expect(shares[0].activityId).toBe(2)
+  })
+
   it('getCompatibilityMatches', async () => {
     apiMock.post.mockResolvedValue({
       data: [

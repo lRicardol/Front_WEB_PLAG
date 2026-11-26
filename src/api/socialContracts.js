@@ -3,6 +3,8 @@ export const SOCIAL_ENDPOINTS = {
   tripActivities: (travelPlanId) => `/travel-plans/${travelPlanId}/activities`,
   shareActivity: (activityId) => `/activities/${activityId}/share`,
   sharedActivityDecision: (sharedActivityId) => `/shared-activities/${sharedActivityId}`,
+  sharedActivities: '/shared-activities',
+  shareAllActivities: (travelPlanId) => `/travel-plans/${travelPlanId}/activities/share`,
   compatibilityMatches: '/compatibility/matches'
 }
 
