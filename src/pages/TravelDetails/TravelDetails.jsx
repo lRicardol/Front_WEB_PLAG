@@ -853,7 +853,9 @@ const TravelDetails = () => {
   }, [])
 
   useEffect(() => {
-    if (user?.id) loadSharedActivities()
+    if (user?.id) {
+      void loadSharedActivities()
+    }
   }, [user?.id, loadSharedActivities])
 
   const handleStatusChange = async (newStatus) => {
