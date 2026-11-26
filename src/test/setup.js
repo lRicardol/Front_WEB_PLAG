@@ -7,7 +7,9 @@ Element.prototype.scrollIntoView = function scrollIntoViewPolyfill() {}
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
-  localStorage.clear()
+  if (typeof localStorage !== 'undefined') {
+    localStorage.clear()
+  }
 })
 
 // jsdom: matchMedia

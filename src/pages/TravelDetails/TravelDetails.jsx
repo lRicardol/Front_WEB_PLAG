@@ -4,6 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/use-auth.js'
 import { travelService } from '../../services/travelService'
 import { socialService } from '../../services/socialService'
+import { socialCollaborationService } from '../../services/socialCollaborationService'
 import { aiService } from '../../services/aiService'
 import ErrorBanner from '../../components/UI/ErrorBanner'
 import SkeletonLoader from '../../components/UI/SkeletonLoader'
@@ -11,7 +12,7 @@ import { extractErrorMessage } from '../../utils/errorUtils'
 import {
   MapPin, Calendar, Users, DollarSign, ArrowLeft,
   Edit, Plus, Trash2, Globe, Clock,
-  Activity, UserCheck, UserPlus, Sparkles,
+  Activity, UserCheck, UserPlus, Sparkles, Share2, Check,
 } from 'lucide-react'
 import './TravelDetails.css'
 import QuickEditModal from '../../components/TravelPlan/QuickEditModal'
@@ -279,7 +280,7 @@ ActivityModal.propTypes = {
   onSaved: PropTypes.func.isRequired,
 }
 
-const ActivityList = ({ activities, onEdit, onDelete }) => {
+const ActivityList = ({ activities, onEdit, onDelete, onShare }) => {
   if (activities.length === 0) {
     return (
       <div className="activities-empty">
@@ -310,6 +311,9 @@ const ActivityList = ({ activities, onEdit, onDelete }) => {
               <span className="activity-cost">${Number(act.estimatedCost).toLocaleString()}</span>
             )}
             <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <button className="icon-btn" onClick={() => onShare(act)} title="Compartir actividad">
+                <Share2 size={14} />
+              </button>
               <button className="icon-btn" onClick={() => onEdit(act)} title="Editar">
                 <Edit size={14} />
               </button>
@@ -328,6 +332,60 @@ ActivityList.propTypes = {
   activities: PropTypes.array.isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onShare: PropTypes.func.isRequired,
+}
+
+const ShareActivityModal = ({ activity, connections, loading, onClose, onShare }) => {
+  const [receiverId, setReceiverId] = useState('')
+
+  return (
+    <div className="activity-modal-overlay">
+      <button type="button" className="activity-modal-backdrop" onClick={onClose} aria-label="Cerrar" />
+      <dialog open className="activity-modal-panel animate-scaleIn" aria-labelledby="share-activity-title">
+        <div className="activity-modal-body">
+          <h3 id="share-activity-title">Compartir: {activity.name}</h3>
+          {loading ? (
+            <p>Cargando conexiones…</p>
+          ) : connections.length === 0 ? (
+            <p>Necesitas una conexión aceptada con otro viajero.</p>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="share-receiver">Viajero</label>
+              <select id="share-receiver" value={receiverId} onChange={(e) => setReceiverId(e.target.value)}>
+                <option value="">Selecciona un viajero</option>
+                {connections.map((connection) => {
+                  const id = connection.connectedUserId ?? connection.otherUserId ?? connection.peerUserId ?? connection.userId
+                  const name = connection.firstName
+                    ? `${connection.firstName} ${connection.lastName || ''}`.trim()
+                    : connection.username || `Viajero ${id}`
+                  return id ? <option key={id} value={String(id)}>{name}</option> : null
+                })}
+              </select>
+            </div>
+          )}
+          <div className="activity-modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!receiverId}
+              onClick={() => onShare(activity.id, Number(receiverId))}
+            >
+              Compartir
+            </button>
+          </div>
+        </div>
+      </dialog>
+    </div>
+  )
+}
+
+ShareActivityModal.propTypes = {
+  activity: PropTypes.object.isRequired,
+  connections: PropTypes.array.isRequired,
+  loading: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onShare: PropTypes.func.isRequired,
 }
 
 const CompatibleTravelersList = ({ loading, travelers, onConnect, connectingId }) => {
@@ -412,6 +470,22 @@ function catalogDefaultTimes(plan) {
     startTime: `${day}T10:00`,
     endTime: `${day}T13:00`,
   }
+}
+
+function isSharedActivityAlreadyInPlan(sharedActivity, activities) {
+  const normalize = (value) => String(value || '').trim().toLowerCase()
+  const sameTime = (left, right) =>
+    left && right && new Date(left).getTime() === new Date(right).getTime()
+
+  return activities.some((activity) =>
+    String(activity.id) === String(sharedActivity.activityId) ||
+    (
+      normalize(activity.name) === normalize(sharedActivity.activityName) &&
+      normalize(activity.location) === normalize(sharedActivity.activityLocation) &&
+      sameTime(activity.startTime, sharedActivity.activityStartTime) &&
+      sameTime(activity.endTime, sharedActivity.activityEndTime)
+    )
+  )
 }
 
 function TravelDetailsBreadcrumb({ navigate }) {
@@ -513,6 +587,7 @@ PlanInfoCards.propTypes = {
 function TravelDetailsView({
   plan,
   id,
+  userId,
   navigate,
   error,
   setError,
@@ -532,6 +607,11 @@ function TravelDetailsView({
   onConnectTraveler,
   onQuickEdit,
   onPickCatalogActivity,
+  sharedActivities,
+  onResolveSharedActivity,
+  onAddSharedActivityToPlan,
+  onShareActivity,
+  handleOpenShareAll,
 }) {
   const sc = statusConfig[plan.status] || { label: plan.status, cls: 'badge-planning' }
   const transitions = STATUS_TRANSITIONS[plan.status] || []
@@ -574,11 +654,19 @@ function TravelDetailsView({
               >
                 <Plus size={15} /> Agregar
               </button>
+              <button
+                type="button"
+                className="btn-outline-sm"
+                onClick={() => handleOpenShareAll()}
+              >
+                <Share2 size={15} /> Compartir todas
+              </button>
             </div>
             <ActivityList
               activities={activities}
               onEdit={(act) => setActiveModal(act)}
               onDelete={handleDeleteActivity}
+              onShare={onShareActivity}
             />
           </div>
 
@@ -586,6 +674,56 @@ function TravelDetailsView({
         </div>
 
         <div>
+          {sharedActivities.length > 0 && (
+            <div className="section-card">
+              <div className="section-card-header">
+                <div className="flex items-center gap-2">
+                  <Share2 size={18} />
+                  <h2>Actividades compartidas</h2>
+                </div>
+              </div>
+              <div className="compat-list">
+                {sharedActivities.map((shared) => (
+                  <div key={shared.id} className="compat-item shared-activity-item">
+                    <div className="compat-item-main">
+                      <div>
+                        <h4>{shared.activityName || `Actividad ${shared.activityId}`}</h4>
+                        {shared.activityLocation && <p>{shared.activityLocation}</p>}
+                        {shared.activityDescription && <p>{shared.activityDescription}</p>}
+                        <p>{shared.status}</p>
+                      </div>
+                    </div>
+                    {String(shared.receiverId) === String(userId) && (
+                      <div className="compat-item-actions shared-activity-actions">
+                        {shared.status === 'PENDING' && (
+                          <>
+                            <button type="button" className="btn-primary" onClick={() => onResolveSharedActivity(shared.id, 'ACCEPT')}>
+                              <Check size={14} /> Aceptar
+                            </button>
+                            <button type="button" className="btn-ghost" onClick={() => onResolveSharedActivity(shared.id, 'REJECT')}>
+                              Rechazar
+                            </button>
+                          </>
+                        )}
+                        {shared.status === 'ACCEPTED' && isSharedActivityAlreadyInPlan(shared, activities) && (
+                          <span>Ya está en este plan</span>
+                        )}
+                        {shared.status === 'ACCEPTED' && !isSharedActivityAlreadyInPlan(shared, activities) && (
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => onAddSharedActivityToPlan(shared)}
+                          >
+                            Agregar a este plan
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="section-card">
             <div className="section-card-header">
               <div className="flex items-center gap-2">
@@ -640,6 +778,7 @@ function TravelDetailsView({
 TravelDetailsView.propTypes = {
   plan: PropTypes.object.isRequired,
   id: PropTypes.string.isRequired,
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   navigate: PropTypes.func.isRequired,
   error: PropTypes.string,
   setError: PropTypes.func.isRequired,
@@ -659,6 +798,11 @@ TravelDetailsView.propTypes = {
   onConnectTraveler: PropTypes.func.isRequired,
   onQuickEdit: PropTypes.func.isRequired,
   onPickCatalogActivity: PropTypes.func.isRequired,
+  sharedActivities: PropTypes.array.isRequired,
+  onResolveSharedActivity: PropTypes.func.isRequired,
+  onAddSharedActivityToPlan: PropTypes.func.isRequired,
+  onShareActivity: PropTypes.func.isRequired,
+  handleOpenShareAll: PropTypes.func.isRequired,
 }
 
 /* ── Main Page ─────────────────────────────────────────────────────────────── */
@@ -677,6 +821,10 @@ const TravelDetails = () => {
   const [compatConnectingId, setCompatConnectingId] = useState(null)
   const [showQuickEdit, setShowQuickEdit] = useState(false)
   const [activityPrefill, setActivityPrefill] = useState(null)
+  const [sharedActivities, setSharedActivities] = useState([])
+  const [shareTarget, setShareTarget] = useState(null)
+  const [shareConnections, setShareConnections] = useState([])
+  const [shareConnectionsLoading, setShareConnectionsLoading] = useState(false)
 
   const fetchPlan = useCallback(async () => {
     setLoading(true)
@@ -695,6 +843,18 @@ const TravelDetails = () => {
   }, [id])
 
   useEffect(() => { fetchPlan() }, [fetchPlan])
+
+  const loadSharedActivities = useCallback(async () => {
+    try {
+      setSharedActivities(await socialCollaborationService.getSharedActivities())
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (user?.id) loadSharedActivities()
+  }, [user?.id, loadSharedActivities])
 
   const handleStatusChange = async (newStatus) => {
     setStatusLoading(true)
@@ -819,6 +979,99 @@ const TravelDetails = () => {
     }
   }, [])
 
+  const handleOpenShareActivity = useCallback(async (activity) => {
+    setShareTarget(activity)
+    setShareConnectionsLoading(true)
+    try {
+      if (user?.id) setShareConnections(await socialService.getUserConnections(user.id))
+    } catch (err) {
+      setError(extractErrorMessage(err))
+      setShareConnections([])
+    } finally {
+      setShareConnectionsLoading(false)
+    }
+  }, [user?.id])
+
+  const handleOpenShareAll = useCallback(async () => {
+    setShareTarget({ id: 'all', name: 'todas las actividades del plan' })
+    setShareConnectionsLoading(true)
+    try {
+      if (user?.id) setShareConnections(await socialService.getUserConnections(user.id))
+    } catch (err) {
+      setError(extractErrorMessage(err))
+      setShareConnections([])
+    } finally {
+      setShareConnectionsLoading(false)
+    }
+  }, [user?.id])
+
+  const handleShareActivity = useCallback(async (activityId, receiverId) => {
+    try {
+      if (activityId === 'all') {
+        await socialCollaborationService.shareAllActivities(id, receiverId)
+      } else {
+        await socialCollaborationService.shareActivity(activityId, receiverId)
+      }
+      setShareTarget(null)
+      await loadSharedActivities()
+      setCompatNotice('Actividad compartida correctamente.')
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    }
+  }, [id, loadSharedActivities])
+
+  const handleAddSharedActivityToPlan = useCallback(async (sharedActivity) => {
+    if (isSharedActivityAlreadyInPlan(sharedActivity, plan?.activities || [])) {
+      setCompatNotice('La actividad ya está en este plan.')
+      return
+    }
+
+    if (!sharedActivity.activityStartTime || !sharedActivity.activityEndTime) {
+      setError('No se puede agregar esta actividad: faltan las horas de inicio o fin.')
+      return
+    }
+
+    try {
+      const savedActivity = await travelService.addActivity(id, {
+        name: sharedActivity.activityName || `Actividad ${sharedActivity.activityId}`,
+        description: sharedActivity.activityDescription || undefined,
+        location: sharedActivity.activityLocation || undefined,
+        startTime: sharedActivity.activityStartTime,
+        endTime: sharedActivity.activityEndTime,
+      })
+      setPlan((currentPlan) => {
+        if (!currentPlan) return currentPlan
+        const currentActivities = currentPlan.activities || []
+        if (isSharedActivityAlreadyInPlan(sharedActivity, currentActivities)) {
+          return currentPlan
+        }
+        return { ...currentPlan, activities: [...currentActivities, savedActivity] }
+      })
+      setCompatNotice('Actividad agregada a este plan.')
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    }
+  }, [id, plan?.activities])
+
+  const handleResolveSharedActivity = useCallback(async (sharedActivityId, action) => {
+    try {
+      const sharedActivity = sharedActivities.find(
+        (item) => String(item.id) === String(sharedActivityId)
+      )
+      await socialCollaborationService.updateSharedActivity(sharedActivityId, action)
+      await loadSharedActivities()
+      if (action === 'ACCEPT' && sharedActivity) {
+        await handleAddSharedActivityToPlan(sharedActivity)
+      } else if (action === 'ACCEPT') {
+        setCompatNotice('Actividad aceptada.')
+      } else {
+        setCompatNotice('Actividad rechazada.')
+      }
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    }
+  }, [handleAddSharedActivityToPlan, loadSharedActivities, sharedActivities])
+
   if (loading) {
     return (
       <div className="page-container">
@@ -856,6 +1109,7 @@ const TravelDetails = () => {
       <TravelDetailsView
         plan={plan}
         id={id}
+        userId={user?.id}
         navigate={navigate}
         error={error}
         setError={setError}
@@ -875,7 +1129,21 @@ const TravelDetails = () => {
         onConnectTraveler={handleCompatConnect}
         onQuickEdit={() => setShowQuickEdit(true)}
         onPickCatalogActivity={handlePickCatalogActivity}
+        sharedActivities={sharedActivities}
+        onResolveSharedActivity={handleResolveSharedActivity}
+        onAddSharedActivityToPlan={handleAddSharedActivityToPlan}
+        onShareActivity={handleOpenShareActivity}
+        handleOpenShareAll={handleOpenShareAll}
       />
+      {shareTarget ? (
+        <ShareActivityModal
+          activity={shareTarget}
+          connections={shareConnections}
+          loading={shareConnectionsLoading}
+          onClose={() => setShareTarget(null)}
+          onShare={handleShareActivity}
+        />
+      ) : null}
       <QuickEditModal
         isOpen={showQuickEdit}
         onClose={() => setShowQuickEdit(false)}

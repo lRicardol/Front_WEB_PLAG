@@ -8,6 +8,7 @@ const svc = vi.hoisted(() => ({
   getTripActivities: vi.fn(),
   shareActivity: vi.fn(),
   updateSharedActivity: vi.fn(),
+  getSharedActivities: vi.fn(),
   getCompatibilityMatches: vi.fn(),
 }))
 
@@ -21,6 +22,7 @@ beforeEach(() => {
   svc.getTripActivities.mockResolvedValue([{ id: 1, name: 'x' }])
   svc.shareActivity.mockResolvedValue({ id: 10, activityId: 1, senderId: 1, receiverId: 2, status: 'PENDING', sharedPlan: false })
   svc.updateSharedActivity.mockResolvedValue({ id: 10, activityId: 1, senderId: 1, receiverId: 2, status: 'ACCEPTED', sharedPlan: true })
+  svc.getSharedActivities.mockResolvedValue([])
   svc.getCompatibilityMatches.mockResolvedValue([
     { userId: 1, totalScore: 1, destinationScore: 0, dateProximityScore: 0, interestScore: 0, matchedInterests: ['beach'] },
   ])
@@ -34,6 +36,7 @@ describe('useSocialCollaboration', () => {
       await result.current.loadActivities(5)
       await result.current.shareActivity(1, 2)
       await result.current.resolveSharedActivity(10, SHARED_ACTIVITY_ACTIONS.ACCEPT)
+      await result.current.loadSharedActivities()
       await result.current.loadCompatibilityMatches({
         destination: ' Lima ',
         startDate: 'a',

@@ -96,6 +96,19 @@ export const useSocialCollaboration = () => {
     }
   }
 
+  const loadSharedActivities = async () => {
+    setLoading((prev) => ({ ...prev, resolve: true }))
+    setError('')
+    try {
+      const result = await socialCollaborationService.getSharedActivities()
+      setSharedActivities(result)
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to load shared activities')
+    } finally {
+      setLoading((prev) => ({ ...prev, resolve: false }))
+    }
+  }
+
   const loadCompatibilityMatches = async ({ destination, startDate, endDate, interestsRaw }) => {
     setLoading((prev) => ({ ...prev, matches: true }))
     setError('')
@@ -138,6 +151,7 @@ export const useSocialCollaboration = () => {
     loadActivities,
     shareActivity,
     resolveSharedActivity,
+    loadSharedActivities,
     loadCompatibilityMatches,
     toggleInterest
   }

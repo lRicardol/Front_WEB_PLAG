@@ -28,6 +28,11 @@ describe('socialModels', () => {
       receiverId: 4,
       status: 'PENDING',
       sharedPlan: true,
+      activityName: '',
+      activityDescription: '',
+      activityLocation: '',
+      activityStartTime: null,
+      activityEndTime: null,
     })
   })
 
@@ -69,6 +74,11 @@ describe('socialModels', () => {
       receiverId: 0,
       status: 'PENDING',
       sharedPlan: false,
+      activityName: '',
+      activityDescription: '',
+      activityLocation: '',
+      activityStartTime: null,
+      activityEndTime: null,
     })
 
     expect(normalizeCompatibilityMatches([{ matchedInterests: 'oops' }])).toEqual([
